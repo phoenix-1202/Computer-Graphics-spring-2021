@@ -120,6 +120,8 @@ public:
         fclose(file_3);
     }
 
+    /// Colorspace convert part
+
     void HSL_to_RGB() {
         for (int i = 0; i < size; i += 3) {
             double h = (double) data[i] / 255.0 * 360;
@@ -203,19 +205,29 @@ public:
     }
 
     void YCbCr_601_to_RGB() {
-
+        YCbCr_to_RGB(0.299, 0.587, 0.114);
     }
 
     void YCbCr_709_to_RGB() {
-
+        YCbCr_to_RGB(0.2126, 0.7152, 0.0722);
     }
 
     void YCoCg_to_RGB() {
-
+        for (int i = 0; i < size; i += 3) {
+            double y = (double) data[i] / 255;
+            double co = (double) data[i + 1] / 255 - 0.5;
+            double cg = (double) data[i + 2] / 255 - 0.5;
+            double r = fmin(fmax(0, y + co - cg), 1);
+            double g = fmin(fmax(0, y + cg), 1);
+            double b = fmin(fmax(0, y - co - cg), 1);
+            data[i] = (unsigned char) (r * 255);
+            data[i + 1] = (unsigned char) (g * 255);
+            data[i + 2] = (unsigned char) (b * 255);
+        }
     }
 
     void CMY_to_RGB() {
-
+        inversion();
     }
 
     void RGB_to_HSL() {
@@ -269,19 +281,29 @@ public:
     }
 
     void RGB_to_YCbCr_601() {
-
+        RGB_to_YCbCr(0.299, 0.587, 0.114);
     }
 
     void RGB_to_YCbCr_709() {
-
+        RGB_to_YCbCr(0.2126, 0.7152, 0.0722);
     }
 
     void RGB_to_YCoCg() {
-
+        for (int i = 0; i < size; i += 3) {
+            double r = (double) data[i] / 255;
+            double g = (double) data[i + 1] / 255;
+            double b = (double) data[i + 2] / 255;
+            double y = r / 4 + g / 2 + b / 4;
+            double co = r / 2 - b / 2;
+            double cg = -r / 4 + g / 2 - b / 4;
+            data[i] = (unsigned char) (y * 255);
+            data[i + 1] = (unsigned char) ((co + 0.5) * 255);
+            data[i + 2] = (unsigned char) ((cg + 0.5) * 255);
+        }
     }
 
     void RGB_to_CMY() {
-
+        inversion();
     }
 
     ~Image() {
@@ -295,6 +317,48 @@ public:
 private:
     unsigned char* data;
     int width, height, type, pixelSize = 1, size;
+
+    void inversion() {
+        for (int i = 0; i < size; i++)
+            data[i] = ~data[i];
+    }
+
+    void YCbCr_to_RGB(double kr, double kg, double kb) {
+        for (int i = 0; i < size; i += 3) {
+            auto y = (double) data[i];
+            auto cb = (double) data[i + 1];
+            auto cr = (double) data[i + 2];
+            double yy = (y - 16) / 219;
+            double pb = (cb - 128) / 224;
+            double pr = (cr - 128) / 224;
+            double r = yy + (2 - 2 * kr) * pr;
+            double g = yy + (2 * kb - 2) * kb / kg * pb + (2 * kr - 2) * kr / kg * pr;
+            double b = yy + (2 - 2 * kb) * pb;
+            r = fmax(fmin(r, 1), 0) * 255;
+            g = fmax(fmin(g, 1), 0) * 255;
+            b = fmax(fmin(b, 1), 0) * 255;
+            data[i] = (unsigned char) r;
+            data[i + 1] = (unsigned char) g;
+            data[i + 2] = (unsigned char) b;
+        }
+    }
+
+    void RGB_to_YCbCr(double kr, double kg, double kb) {
+        for (int i = 0; i < size; i += 3) {
+            double r = (double) data[i] / 255;
+            double g = (double) data[i + 1] / 255;
+            double b = (double) data[i + 2] / 255;
+            double yy = kr * r + kg * g + kb * b;
+            double pb = 1.0 / 2 * (b - yy) / (1 - kb);
+            double pr = 1.0 / 2 * (r - yy) / (1 - kr);
+            double y = 16 + yy * 219;
+            double cb = 128 + pb * 224;
+            double cr = 128 + pr * 224;
+            data[i] = (unsigned char) y;
+            data[i + 1] = (unsigned char) cb;
+            data[i + 2] = (unsigned char) cr;
+        }
+    }
 };
 
 int main(int argc, char* argv[]) {
@@ -309,10 +373,10 @@ int main(int argc, char* argv[]) {
     }
     string from_colorspace;
     string to_colorspace;
-    char* out_file_names[3];
-    int out_files_cnt;
     char* in_file_names[3];
     int in_files_cnt;
+    char* out_file_names[3];
+    int out_files_cnt;
     if (m["-f"] == 1 && m["-t"] == 1 && m["-i"] == 1 && m["-o"] == 1) {
         int pos = 1;
         while (pos < argc) {
