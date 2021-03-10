@@ -1,6 +1,7 @@
 #include <iostream>
 #include <unordered_map>
 #include <cstring>
+#include <vector>
 #include <cmath>
 
 using namespace std;
@@ -10,7 +11,7 @@ const double eps = 1e-8;
 struct Image {
 public:
     explicit Image(const char* infile) {
-        FILE *file = fopen(infile, "rb");
+        FILE* file = fopen(infile, "rb");
         if (file == nullptr) {
             cerr << "Cannot open the image file: problems with file";
             exit(1);
@@ -325,9 +326,9 @@ private:
 
     void YCbCr_to_RGB(double kr, double kg, double kb) {
         for (int i = 0; i < size; i += 3) {
-            auto y = (double) data[i];
-            auto cb = (double) data[i + 1];
-            auto cr = (double) data[i + 2];
+            auto y = (double) data[i] / 255 * 219 + 16;
+            auto cb = (double) data[i + 1] / 255 * 224 + 16;
+            auto cr = (double) data[i + 2] / 255 * 224 + 16;
             double yy = (y - 16) / 219;
             double pb = (cb - 128) / 224;
             double pr = (cr - 128) / 224;
@@ -351,9 +352,9 @@ private:
             double yy = kr * r + kg * g + kb * b;
             double pb = 1.0 / 2 * (b - yy) / (1 - kb);
             double pr = 1.0 / 2 * (r - yy) / (1 - kr);
-            double y = 16 + yy * 219;
-            double cb = 128 + pb * 224;
-            double cr = 128 + pr * 224;
+            double y = ((16 + yy * 219) - 16) / 219 * 255;
+            double cb = ((128 + pb * 224) - 16) / 224 * 255;
+            double cr = ((128 + pr * 224) - 16) / 224 * 255;
             data[i] = (unsigned char) y;
             data[i + 1] = (unsigned char) cb;
             data[i + 2] = (unsigned char) cr;
@@ -373,9 +374,9 @@ int main(int argc, char* argv[]) {
     }
     string from_colorspace;
     string to_colorspace;
-    char* in_file_names[3];
+    vector<string> in_file_names;
+    vector<string> out_file_names;
     int in_files_cnt;
-    char* out_file_names[3];
     int out_files_cnt;
     if (m["-f"] == 1 && m["-t"] == 1 && m["-i"] == 1 && m["-o"] == 1) {
         int pos = 1;
@@ -394,7 +395,7 @@ int main(int argc, char* argv[]) {
                 pos++;
                 if (strcmp(argv[pos], "1") == 0) {
                     in_files_cnt = 1;
-                    in_file_names[0] = argv[pos + 1];
+                    in_file_names.emplace_back(argv[pos + 1]);
                     pos += 2;
                 }
                 else if (strcmp(argv[pos], "3") == 0) {
@@ -402,15 +403,15 @@ int main(int argc, char* argv[]) {
                     pos++;
                     int n = strlen(argv[pos]);
                     for (int i = 0; i < 3; i++) {
-                        in_file_names[i] = new char[n + 2];
-                        int ind = 0;
+                        string new_file_name;
                         for (int j = 0; j < n; j++) {
                             if (j == n - 4) {
-                                in_file_names[i][ind++] = '_';
-                                in_file_names[i][ind++] = (char)(i + 1 + '0');
+                                new_file_name += '_';
+                                new_file_name += (char)(i + 1 + '0');
                             }
-                            in_file_names[i][ind++] = argv[pos][j];
+                            new_file_name += argv[pos][j];
                         }
+                        in_file_names.push_back(new_file_name);
                     }
                     pos++;
                 }
@@ -423,7 +424,7 @@ int main(int argc, char* argv[]) {
                 pos++;
                 if (strcmp(argv[pos], "1") == 0) {
                     out_files_cnt = 1;
-                    out_file_names[0] = argv[pos + 1];
+                    out_file_names.emplace_back(argv[pos + 1]);
                     pos += 2;
                 }
                 else if (strcmp(argv[pos], "3") == 0) {
@@ -431,15 +432,15 @@ int main(int argc, char* argv[]) {
                     pos++;
                     int n = strlen(argv[pos]);
                     for (int i = 0; i < 3; i++) {
-                        out_file_names[i] = new char[n + 2];
-                        int ind = 0;
+                        string new_file_name;
                         for (int j = 0; j < n; j++) {
                             if (j == n - 4) {
-                                out_file_names[i][ind++] = '_';
-                                out_file_names[i][ind++] = (char)(i + 1 + '0');
+                                new_file_name += '_';
+                                new_file_name += (char)(i + 1 + '0');
                             }
-                            out_file_names[i][ind++] = argv[pos][j];
+                            new_file_name += argv[pos][j];
                         }
+                        out_file_names.push_back(new_file_name);
                     }
                     pos++;
                 }
@@ -457,15 +458,15 @@ int main(int argc, char* argv[]) {
         /// Read the image
         Image* in_image;
         if (in_files_cnt == 3)
-            in_image = new Image(in_file_names[0], in_file_names[1], in_file_names[2]);
+            in_image = new Image(in_file_names[0].c_str(), in_file_names[1].c_str(), in_file_names[2].c_str());
         else {
-            in_image = new Image(in_file_names[0]);
+            in_image = new Image(in_file_names[0].c_str());
             if (in_image->getType() == 5) {
                 cerr << "One image must be in ppm format (P6)";
                 exit(1);
             }
         }
-        
+
         /// Colorspace magic
         if (from_colorspace != to_colorspace) {
             if (from_colorspace != "RGB") {
@@ -487,21 +488,22 @@ int main(int argc, char* argv[]) {
         }
         /// Write the result
         if (out_files_cnt == 1) {
-            if (out_file_names[0][strlen(out_file_names[0]) - 2] != 'p') {
+            if (out_file_names[0][out_file_names[0].size() - 2] != 'p') {
                 cerr << "One out file must be in ppm format (P6)";
                 exit(1);
             }
-            in_image->write(out_file_names[0]);
+            in_image->write(out_file_names[0].c_str());
         }
         else {
-            if (out_file_names[0][strlen(out_file_names[0]) - 2] != 'g' ||
-                out_file_names[1][strlen(out_file_names[1]) - 2] != 'g' ||
-                out_file_names[2][strlen(out_file_names[2]) - 2] != 'g') {
+            if (out_file_names[0][out_file_names[0].size() - 2] != 'g' ||
+                out_file_names[1][out_file_names[1].size() - 2] != 'g' ||
+                out_file_names[2][out_file_names[2].size() - 2] != 'g') {
                 cerr << "Three out files must be in pgm format (P5)";
                 exit(1);
             }
-            in_image->write(out_file_names[0], out_file_names[1], out_file_names[2]);
+            in_image->write(out_file_names[0].c_str(), out_file_names[1].c_str(), out_file_names[2].c_str());
         }
+        delete in_image;
     } else {
         cerr << "Incorrect input; must be flags -f, -t, -i and -o";
         exit(1);
