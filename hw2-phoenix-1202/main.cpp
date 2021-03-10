@@ -399,10 +399,20 @@ int main(int argc, char* argv[]) {
                 }
                 else if (strcmp(argv[pos], "3") == 0) {
                     in_files_cnt = 3;
-                    in_file_names[0] = argv[pos + 1];
-                    in_file_names[1] = argv[pos + 2];
-                    in_file_names[2] = argv[pos + 3];
-                    pos += 4;
+                    pos++;
+                    int n = strlen(argv[pos]);
+                    for (int i = 0; i < 3; i++) {
+                        in_file_names[i] = new char[n + 2];
+                        int ind = 0;
+                        for (int j = 0; j < n; j++) {
+                            if (j == n - 4) {
+                                in_file_names[i][ind++] = '_';
+                                in_file_names[i][ind++] = (char)(i + 1 + '0');
+                            }
+                            in_file_names[i][ind++] = argv[pos][j];
+                        }
+                    }
+                    pos++;
                 }
                 else {
                     cerr << "Incorrect format of input: possible values of input arguments count is 1 and 3";
@@ -418,10 +428,20 @@ int main(int argc, char* argv[]) {
                 }
                 else if (strcmp(argv[pos], "3") == 0) {
                     out_files_cnt = 3;
-                    out_file_names[0] = argv[pos + 1];
-                    out_file_names[1] = argv[pos + 2];
-                    out_file_names[2] = argv[pos + 3];
-                    pos += 4;
+                    pos++;
+                    int n = strlen(argv[pos]);
+                    for (int i = 0; i < 3; i++) {
+                        out_file_names[i] = new char[n + 2];
+                        int ind = 0;
+                        for (int j = 0; j < n; j++) {
+                            if (j == n - 4) {
+                                out_file_names[i][ind++] = '_';
+                                out_file_names[i][ind++] = (char)(i + 1 + '0');
+                            }
+                            out_file_names[i][ind++] = argv[pos][j];
+                        }
+                    }
+                    pos++;
                 }
                 else {
                     cerr << "Incorrect format of input: possible values of output arguments count is 1 and 3";
