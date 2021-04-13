@@ -15,12 +15,10 @@ public:
         char f, endOfLine;
         int w, h, maxColor, t;
         if (fscanf(file, "%c%d%d%d%d%c", &f, &t, &w, &h, &maxColor, &endOfLine) == 6 &&
-            f == 'P' && (t == 5 || t == 6) && maxColor == 255 && endOfLine == '\n') {
+            f == 'P' && t == 5 && maxColor == 255 && endOfLine == '\n') {
             width = w;
             height = h;
             type = t;
-            if (type == 6)
-                pixelSize = 3;
             size = width * height * pixelSize;
             data = new (nothrow) unsigned char[size];
             if (data == nullptr) {
@@ -74,16 +72,16 @@ public:
                 double jj = (double) j / scale_width;
                 int i1 = fmin(height - 1, fmax(0, floor(ii)));
                 int i2 = fmin(height - 1, fmax(0, floor(ii) + 1));
-                double weight_i1 = fabs(ii - i2);
                 double weight_i2 = fabs(ii - i1);
+                double weight_i1 = 1 - weight_i2;
                 int j1 = fmin(width - 1, fmax(0, floor(jj)));
                 int j2 = fmin(width - 1, fmax(0, floor(jj) + 1));
-                double weight_j1 = fabs(jj - j2);
                 double weight_j2 = fabs(jj - j1);
+                double weight_j1 = 1 - weight_j2;
                 double res_j1 = weight_i1 * data[i1 * width + j1] + weight_i2 * data[i2 * width + j1];
                 double res_j2 = weight_i1 * data[i1 * width + j2] + weight_i2 * data[i2 * width + j2];
                 double res = weight_j1 * res_j1 + weight_j2 * res_j2;
-                newData[i * newWidth + j] = (unsigned char) res;
+                newData[i * newWidth + j] = (unsigned char) fmin(255, fmax(0, res));
             }
         }
     }
@@ -202,7 +200,7 @@ private:
 };
 
 int main(int argc, char* argv[]) {
-    if (argc < 9 || argc > 11) {
+    if (argc != 9 && argc != 11) {
         cerr << "Incorrect arguments count; expected 8, 9 or 10";
         exit(1);
     }
@@ -252,10 +250,10 @@ int main(int argc, char* argv[]) {
     double b = 0;
     double c = 0.5;
     try {
-        if (argc >= 10)
+        if (argc == 11) {
             b = stod(argv[9]);
-        if (argc == 11)
             c = stod(argv[10]);
+        }
     } catch (const exception& e) {
         cerr << "Incorrect B or C; please enter two numbers";
         exit(1);
