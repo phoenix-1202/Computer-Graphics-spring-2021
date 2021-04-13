@@ -86,149 +86,35 @@ public:
     }
 
     void Floyd_Steinberg_dithering() {
-        double error_matrix[height][width];
-        for (int i = 0; i < height; i++)
-            for (int j = 0; j < width; j++)
-                error_matrix[i][j] = 0;
-        for (int i = 0; i < height; i++)
-            for (int j = 0; j < width; j++) {
-                double pixel = data[i * width + j];
-                auto nearest_values = left_right(pixel);
-                double left = anti_gamma_correction(nearest_values.first / 255.0) * 255;
-                double right = anti_gamma_correction(nearest_values.second / 255.0) * 255;
-                double mid = anti_gamma_correction(pixel / 255.0) * 255;
-                mid += error_matrix[i][j];
-                double new_pixel = get_nearest(left, right, mid);
-                double quant_error = mid - new_pixel;
-                if (i != height - 1) {
-                    if (j > 0)
-                        error_matrix[i + 1][j - 1] += quant_error * 3 / 16;
-                    error_matrix[i + 1][j] += quant_error * 5 / 16;
-                    if (j < width - 1)
-                        error_matrix[i + 1][j + 1] += quant_error * 1 / 16;
-                }
-                if (j < width - 1)
-                    error_matrix[i][j + 1] += quant_error * 7 / 16;
-                result_data[i * width + j] = (unsigned char) new_pixel;
-            }
+        vector<vector<double>> errors = { {7.0/16, 0.0/16},
+                                          {0.0/16, 3.0/16, 5.0/16, 1.0/16, 0.0/16},
+                                          {0.0/16, 0.0/16, 0.0/16, 0.0/16, 0.0/16}
+        };
+        error_matrix_dithering_general(errors);
     }
 
     void Jarvis_Judice_Ninke_dithering() {
-        double error_matrix[height][width];
-        for (int i = 0; i < height; i++)
-            for (int j = 0; j < width; j++)
-                error_matrix[i][j] = 0;
-        for (int i = 0; i < height; i++)
-            for (int j = 0; j < width; j++) {
-                double pixel = data[i * width + j];
-                auto nearest_values = left_right(pixel);
-                double left = anti_gamma_correction(nearest_values.first / 255.0) * 255;
-                double right = anti_gamma_correction(nearest_values.second / 255.0) * 255;
-                double mid = anti_gamma_correction(pixel / 255.0) * 255;
-                mid += error_matrix[i][j];
-                double new_pixel = get_nearest(left, right, mid);
-                double quant_error = mid - new_pixel;
-                if (j < width - 1)
-                    error_matrix[i][j + 1] += quant_error * 7 / 48;
-                if (j < width - 2)
-                    error_matrix[i][j + 2] += quant_error * 5 / 48;
-                if (i < height - 1) {
-                    if (j > 1)
-                        error_matrix[i + 1][j - 2] += quant_error * 3 / 48;
-                    if (j > 0)
-                        error_matrix[i + 1][j - 1] += quant_error * 5 / 48;
-                    error_matrix[i + 1][j] += quant_error * 7 / 48;
-                    if (j < width - 1)
-                        error_matrix[i + 1][j + 1] += quant_error * 5 / 48;
-                    if (j < width - 2)
-                        error_matrix[i + 1][j + 2] += quant_error * 3 / 48;
-                }
-                if (i < height - 2) {
-                    if (j > 1)
-                        error_matrix[i + 2][j - 2] += quant_error * 1 / 48;
-                    if (j > 0)
-                        error_matrix[i + 2][j - 1] += quant_error * 3 / 48;
-                    error_matrix[i + 2][j] += quant_error * 5 / 48;
-                    if (j < width - 1)
-                        error_matrix[i + 2][j + 1] += quant_error * 3 / 48;
-                    if (j < width - 2)
-                        error_matrix[i + 2][j + 2] += quant_error * 1 / 48;
-                }
-                result_data[i * width + j] = (unsigned char) new_pixel;
-            }
+        vector<vector<double>> errors = { {7.0/48, 5.0/48},
+                                          {3.0/48, 5.0/48, 7.0/48, 5.0/48, 3.0/48},
+                                          {1.0/48, 3.0/48, 5.0/48, 3.0/48, 1.0/48}
+        };
+        error_matrix_dithering_general(errors);
     }
 
     void Sierra_3_dithering() {
-        double error_matrix[height][width];
-        for (int i = 0; i < height; i++)
-            for (int j = 0; j < width; j++)
-                error_matrix[i][j] = 0;
-        for (int i = 0; i < height; i++)
-            for (int j = 0; j < width; j++) {
-                double pixel = data[i * width + j];
-                auto nearest_values = left_right(pixel);
-                double left = anti_gamma_correction(nearest_values.first / 255.0) * 255;
-                double right = anti_gamma_correction(nearest_values.second / 255.0) * 255;
-                double mid = anti_gamma_correction(pixel / 255.0) * 255;
-                mid += error_matrix[i][j];
-                double new_pixel = get_nearest(left, right, mid);
-                double quant_error = mid - new_pixel;
-                if (j < width - 1)
-                    error_matrix[i][j + 1] += quant_error * 5 / 32;
-                if (j < width - 2)
-                    error_matrix[i][j + 2] += quant_error * 3 / 32;
-                if (i < height - 1) {
-                    if (j > 1)
-                        error_matrix[i + 1][j - 2] += quant_error * 2 / 32;
-                    if (j > 0)
-                        error_matrix[i + 1][j - 1] += quant_error * 4 / 32;
-                    error_matrix[i + 1][j] += quant_error * 5 / 32;
-                    if (j < width - 1)
-                        error_matrix[i + 1][j + 1] += quant_error * 2 / 32;
-                    if (j < width - 2)
-                        error_matrix[i + 1][j + 2] += quant_error * 4 / 32;
-                }
-                if (i < height - 2) {
-                    if (j > 0)
-                        error_matrix[i + 2][j - 1] += quant_error * 2 / 32;
-                    error_matrix[i + 2][j] += quant_error * 3 / 32;
-                    if (j < width - 1)
-                        error_matrix[i + 2][j + 1] += quant_error * 2 / 32;
-                }
-                result_data[i * width + j] = (unsigned char) new_pixel;
-            }
+        vector<vector<double>> errors = { {5.0/32, 3.0/32},
+                                          {2.0/32, 4.0/32, 5.0/32, 4.0/32, 2.0/32},
+                                          {0.0/32, 2.0/32, 3.0/32, 2.0/32, 0.0/32}
+        };
+        error_matrix_dithering_general(errors);
     }
 
     void Atkinson_dithering() {
-        double error_matrix[height][width];
-        for (int i = 0; i < height; i++)
-            for (int j = 0; j < width; j++)
-                error_matrix[i][j] = 0;
-        for (int i = 0; i < height; i++)
-            for (int j = 0; j < width; j++) {
-                double pixel = data[i * width + j];
-                auto nearest_values = left_right(pixel);
-                double left = anti_gamma_correction(nearest_values.first / 255.0) * 255;
-                double right = anti_gamma_correction(nearest_values.second / 255.0) * 255;
-                double mid = anti_gamma_correction(pixel / 255.0) * 255;
-                mid += error_matrix[i][j];
-                double new_pixel = get_nearest(left, right, mid);
-                double quant_error = mid - new_pixel;
-                if (j < width - 1)
-                    error_matrix[i][j + 1] += quant_error / 8;
-                if (j < width - 2)
-                    error_matrix[i][j + 2] += quant_error / 8;
-                if (i < height - 1) {
-                    if (j > 0)
-                        error_matrix[i + 1][j - 1] += quant_error / 8;
-                    error_matrix[i + 1][j] += quant_error / 8;
-                    if (j < width - 1)
-                        error_matrix[i + 1][j + 1] += quant_error / 8;
-                }
-                if (i < height - 2)
-                    error_matrix[i + 2][j] += quant_error / 8;
-                result_data[i * width + j] = (unsigned char) new_pixel;
-            }
+        vector<vector<double>> errors = { {1.0/8, 1.0/8},
+                                          {0.0/8, 1.0/8, 1.0/8, 1.0/8, 0.0/8},
+                                          {0.0/8, 0.0/8, 1.0/8, 0.0/8, 0.0/8}
+        };
+        error_matrix_dithering_general(errors);
     }
 
     void halftone_dithering() {
@@ -344,6 +230,55 @@ private:
                 mid += matrix[i % n][j % n] * (right - left);
                 result_data[i * width + j] = (unsigned char) (get_nearest(left, right, mid));
             }
+    }
+
+    void error_matrix_dithering_general(vector<vector<double>>& errors) {
+        vector<double> error_matrix[3];
+        for (auto & i : error_matrix)
+            i.assign(width, 0);
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < width; j++) {
+                double pixel = data[i * width + j];
+                auto nearest_values = left_right(pixel);
+                double left = anti_gamma_correction(nearest_values.first / 255.0) * 255;
+                double right = anti_gamma_correction(nearest_values.second / 255.0) * 255;
+                double mid = anti_gamma_correction(pixel / 255.0) * 255;
+                mid += error_matrix[0][j];
+                double new_pixel = get_nearest(left, right, mid);
+                double quant_error = mid - new_pixel;
+                if (j < width - 1)
+                    error_matrix[0][j + 1] += quant_error * errors[0][0];
+                if (j < width - 2)
+                    error_matrix[0][j + 2] += quant_error * errors[0][1];
+                if (i < height - 1) {
+                    if (j > 1)
+                        error_matrix[1][j - 2] += quant_error * errors[1][0];
+                    if (j > 0)
+                        error_matrix[1][j - 1] += quant_error * errors[1][1];
+                    error_matrix[1][j] += quant_error * errors[1][2];
+                    if (j < width - 1)
+                        error_matrix[1][j + 1] += quant_error * errors[1][3];
+                    if (j < width - 2)
+                        error_matrix[1][j + 2] += quant_error * errors[1][4];
+                }
+                if (i < height - 2) {
+                    if (j > 1)
+                        error_matrix[2][j - 2] += quant_error * errors[2][0];
+                    if (j > 0)
+                        error_matrix[2][j - 1] += quant_error * errors[2][1];
+                    error_matrix[2][j] += quant_error * errors[2][2];
+                    if (j < width - 1)
+                        error_matrix[2][j + 1] += quant_error * errors[2][3];
+                    if (j < width - 2)
+                        error_matrix[2][j + 2] += quant_error * errors[2][4];
+                }
+                result_data[i * width + j] = (unsigned char) new_pixel;
+            }
+            error_matrix[0] = error_matrix[1];
+            error_matrix[1] = error_matrix[2];
+            error_matrix[2].clear();
+            error_matrix[2].assign(width, 0);
+        }
     }
 };
 
