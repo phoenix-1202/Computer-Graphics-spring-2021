@@ -86,7 +86,7 @@ lab4.exe <имя_входного_файла> <имя_выходного_фай�
     </ul>
   </li>
 </ul>
-Информация про BC-сплайны: https://en.wikipedia.org/wiki/Mitchell%E2%80%93Netravali_filters <br>
+Информация про BC-сплайны: https://en.wikipedia.org/wiki/Mitchell%E2%80%93Netravali_filters <br><br>
 
 В <b>частичном</b> решении:
 <ul>
