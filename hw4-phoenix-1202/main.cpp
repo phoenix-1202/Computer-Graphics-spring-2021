@@ -205,7 +205,7 @@ private:
 
 int main(int argc, char* argv[]) {
     if (argc != 9 && argc != 11) {
-        cerr << "Incorrect arguments count; expected 8, 9 or 10";
+        cerr << "Incorrect arguments count; expected 8 or 10";
         exit(1);
     }
     Image image(argv[1]);
