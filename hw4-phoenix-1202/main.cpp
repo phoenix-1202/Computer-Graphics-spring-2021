@@ -2,6 +2,9 @@
 #include <cmath>
 #include <vector>
 #include <algorithm>
+#include <string>
+
+#define _USE_MATH_DEFINES
 
 using namespace std;
 
