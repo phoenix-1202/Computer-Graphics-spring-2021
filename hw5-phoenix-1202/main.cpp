@@ -126,7 +126,7 @@ private:
 
 int main(int argc, char* argv[]) {
     if (argc != 4) {
-        cerr << "Incorrect arguments count; please enter your image filename, new image filename and effect number (an integer from 0 to 4)";
+        cerr << "Incorrect arguments count; please enter your image filename, new image filename and classes count (an integer >= 2)";
         exit(1);
     }
     Image image(argv[1]);
@@ -138,7 +138,7 @@ int main(int argc, char* argv[]) {
             exit(1);
         }
     } catch (const exception& e) {
-        cerr << "Incorrect effect; please enter an int value";
+        cerr << "Incorrect classes count; please enter an int value";
         exit(1);
     }
     image.multi_Otsu_tresholding(classes - 1);
