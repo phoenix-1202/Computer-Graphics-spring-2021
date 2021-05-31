@@ -1,12 +1,11 @@
 #include <iostream>
 #include <cmath>
 #include <vector>
-#include <algorithm>
-#include <string>
-
-#define _USE_MATH_DEFINES
+#include <functional>
 
 using namespace std;
+
+double B = 0, C = 0.5;
 
 struct Image {
 public:
@@ -19,10 +18,11 @@ public:
         char f, endOfLine;
         int w, h, maxColor, t;
         if (fscanf(file, "%c%d%d%d%d%c", &f, &t, &w, &h, &maxColor, &endOfLine) == 6 &&
-            f == 'P' && t == 5 && maxColor == 255 && endOfLine == '\n') {
+            f == 'P' && (t == 5 || t == 6) && maxColor == 255 && endOfLine == '\n') {
             width = w;
             height = h;
             type = t;
+            pixelSize = (t == 6) ? 3 : 1;
             size = width * height * pixelSize;
             data = new (nothrow) unsigned char[size];
             if (data == nullptr) {
@@ -43,16 +43,18 @@ public:
     void set_new_sizes(int w, int h) {
         newHeight = h;
         newWidth = w;
-        newData = new (nothrow) unsigned char[newHeight * newWidth];
+        newData = new (nothrow) unsigned char[newHeight * newWidth * pixelSize];
         if (newData == nullptr) {
             cerr << "Not enough memory for write the result of effect";
             exit(1);
         }
+        fill(newData, newData + newHeight * newWidth * pixelSize, 0);
     }
 
-    void set_new_BC(double b, double c) {
-        B = b;
-        C = c;
+    void set_new_params(double g, double dx, double dy) {
+        gamma = g;
+        di = dy;
+        dj = dx;
     }
 
     void nearest_neighbor() {
@@ -62,104 +64,33 @@ public:
             for (int j = 0; j < newWidth; j++) {
                 int ii = (int) ((double)i / scale_height);
                 int jj = (int) ((double)j / scale_width);
-                newData[i * newWidth + j] = data[ii * width + jj];
-            }
-        }
-    }
-
-    void bilinear() {
-        double scale_height = (double)(newHeight) / height;
-        double scale_width = (double)(newWidth) / width;
-        for (int i = 0; i < newHeight; i++) {
-            for (int j = 0; j < newWidth; j++) {
-                double ii = (double) i / scale_height;
-                double jj = (double) j / scale_width;
-                int i1 = fmin(height - 1, fmax(0, floor(ii)));
-                int i2 = fmin(height - 1, fmax(0, floor(ii) + 1));
-                double weight_i2 = fabs(ii - i1);
-                double weight_i1 = 1 - weight_i2;
-                int j1 = fmin(width - 1, fmax(0, floor(jj)));
-                int j2 = fmin(width - 1, fmax(0, floor(jj) + 1));
-                double weight_j2 = fabs(jj - j1);
-                double weight_j1 = 1 - weight_j2;
-                double res_j1 = weight_i1 * data[i1 * width + j1] + weight_i2 * data[i2 * width + j1];
-                double res_j2 = weight_i1 * data[i1 * width + j2] + weight_i2 * data[i2 * width + j2];
-                double res = weight_j1 * res_j1 + weight_j2 * res_j2;
-                newData[i * newWidth + j] = (unsigned char) fmin(255, fmax(0, res));
-            }
-        }
-    }
-
-    void Lanczos3() {
-        vector<double> buffer(height * newWidth, 0);
-        /// first resize: j coordinate
-        double scale_width = (double)(newWidth) / width;
-        for (int i = 0; i < height; i++) {
-            for (int j = 0; j < newWidth; j++) {
-                double jj = (double) j / scale_width;
-                double res = 0;
-                for (int id = (int) jj - 2; id < (int) jj + 4; id++)
-                    res += data[i * width + min(max(0, id), width - 1)] * L3(jj - (double) id);
-                buffer[i * newWidth + j] = res;
-            }
-        }
-        /// second resize: i coordinate
-        double scale_height = (double)(newHeight) / height;
-        for (int i = 0; i < newHeight; i++) {
-            for (int j = 0; j < newWidth; j++) {
-                double ii = (double) i / scale_height;
-                double res = 0;
-                for (int id = (int) ii - 2; id < (int) ii + 4; id++)
-                    res += buffer[min(max(0, id), height - 1) * newWidth + j] * L3(ii - (double) id);
-                newData[i * newWidth + j] = (unsigned char) fmin(255, fmax(0, res));
-            }
-        }
-    }
-
-    void BC_splines() {
-        vector<double> buffer(height * newWidth, 0);
-        vector<double> p(4, 0);
-        /// first resize: j coordinate
-        double scale_width = (double)(newWidth) / width;
-        for (int i = 0; i < height; i++) {
-            for (int j = 0; j < newWidth; j++) {
-                double jj = (double) j / scale_width;
-                int j1 = fmin(width - 1, fmax(0, floor(jj)));
-                int j2 = fmin(width - 1, fmax(0, floor(jj) + 1));
-                for (int id = j1 - 1; id < j2 + 2; id++)
-                    p[id - j1 + 1] = data[i * width + min(max(id, 0), width - 1)];
-                buffer[i * newWidth + j] = Mitchell_Netravali_filter(p, jj - j1);
-            }
-        }
-        /// second resize: i coordinate
-        double scale_height = (double)(newHeight) / height;
-        for (int i = 0; i < newHeight; i++) {
-            for (int j = 0; j < newWidth; j++) {
-                double ii = (double) i / scale_height;
-                int i1 = fmin(height - 1, fmax(0, floor(ii)));
-                int i2 = fmin(height - 1, fmax(0, floor(ii) + 1));
-                for (int id = i1 - 1; id < i2 + 2; id++)
-                    p[id - i1 + 1] = buffer[min(max(id, 0), height - 1) * newWidth + j];
-                double res = Mitchell_Netravali_filter(p, ii - i1);
-                newData[i * newWidth + j] = (unsigned char) round(fmin(255, fmax(0, res)));
+                for (int k = 0; k < pixelSize; k++) {
+                    if (incorrect(i + (int) di, newHeight) || incorrect(j + (int) dj, newWidth))
+                        continue;
+                    double x = ((double) data[(ii * width + jj) * pixelSize + k]) / 255;
+                    newData[(int) ((i + di) * newWidth + (j + dj)) * pixelSize + k] = (int) (anti_gamma_correction(x) * 255.0);
+                }
             }
         }
     }
 
     void do_algorithm(int a) {
         switch (a) {
-            case 1:
-                bilinear();
-                break;
-            case 2:
-                Lanczos3();
-                break;
-            case 3:
-                BC_splines();
-                break;
-            default:
+            case 0:
                 nearest_neighbor();
                 break;
+            case 1:
+                kernel_resize(0, 1, linear, true);
+                break;
+            case 2:
+                kernel_resize(2, 3, L3, false);
+                break;
+            case 3:
+                kernel_resize(1, 2, Mitchell_Netravali, false);
+                break;
+            default:
+                cerr << "Incorrect argument value; must be an integer from 0 to 4";
+                exit(1);
         }
     }
 
@@ -169,7 +100,7 @@ public:
             cerr << "Cannot open the image file: problems with file";
             exit(1);
         }
-        int newSize = newHeight * newWidth;
+        int newSize = newHeight * newWidth * pixelSize;
         if (fprintf(file, "P%d\n%d %d\n%d\n", type, newWidth, newHeight, 255) < 0 ||
             fwrite(newData, 1, newSize, file) != newSize) {
             cerr << "Problems with writing image to outfile";
@@ -186,26 +117,105 @@ public:
 private:
     unsigned char* data;
     unsigned char* newData;
-    int width, height, type, pixelSize = 1, size, newHeight, newWidth;
-    double B, C;
-
-    double Mitchell_Netravali_filter(vector<double> &p, double d) const {
-        return ((-1/6 * B - C) * (p[0] - p[3]) + (-3/2 * B - C + 2) * (p[1] - p[2])) * pow(d, 3)
-             + ((1/2 * B + 2 * C) * p[0] + (2 * B + C - 3) * p[1] + (-5/2 * B - 2 * C + 3) * p[2] - C * p[3]) * d * d
-             + (-1/2 * B - C) * (p[0] - p[2]) * d
-             + 1/6 * B * p[0] + (-1/3 * B + 1) * p[1] + 1/6 * B * p[2];
-    }
+    int width, height, type, pixelSize, size, newHeight, newWidth;
+    double gamma, di, dj;
 
     static double L3(double x) {
         if (x == 0)
             return 1;
         return 3 * sin(M_PI * x) * sin(M_PI * x / 3) / pow(M_PI * x, 2);
     }
+
+    static double linear(double x) {
+        return (x > 0) ? (1 - x) : (x + 1);
+    }
+
+    static double Mitchell_Netravali(double x) {
+        double xx = fabs(x);
+        if (xx < 1)
+            return 1.0/2 * (4 - 3 * B - 2 * C) * pow(xx, 3) + (-3 + 2 * B + C) * pow(xx, 2) + 1 - B / 3;
+        if (xx < 2)
+            return -(B / 6 + C) * pow(xx, 3) + (B + 5 * C) * pow(xx, 2) - (2 * B + 8 * C) * xx + (4 / 3 * B + 4 * C);
+        return 0;
+    }
+
+    double anti_gamma_correction(double x) const {
+        if (gamma == 1)
+            return x;
+        if (gamma != 0)
+            return pow(x, gamma);
+        if (x <= 0.04045)
+            return x / 12.92;
+        return pow((200 * x + 11) / 211, 2.4);
+    }
+
+    static bool incorrect(int x, int b) {
+        return x < 0 || x >= b;
+    }
+
+    void kernel_resize(int d1_start, int d2_start, const function<double(double)>& F, bool flag) {
+        vector<double> buffer(height * newWidth * pixelSize, 0);
+        /// first resize: j coordinate
+        double scale_width = (double)(newWidth) / width;
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < newWidth; j++) {
+                double jj = (double) j / scale_width;
+                int d1 = d1_start, d2 = d2_start;
+                if (width > newWidth) {
+                    d1 = (int) (d1 / scale_width);
+                    d2 = (int) (d2 / scale_width);
+                }
+                for (int k = 0; k < pixelSize; k++) {
+                    double res = 0;
+                    double sum = 0;
+                    for (int id = (int) jj - d1; id <= (int) jj + d2; id++) {
+                        double r;
+                        if (flag)
+                            r = (d1 == d1_start) ? F(jj - (double) id) : F((jj - (double) id) * scale_width / (d2 - d1)) * (d2 - d1);
+                        else
+                            r = (d1 == d1_start) ? F(jj - (double) id) : F((jj - (double) id) * scale_width);
+                        sum += r;
+                        double x = data[(i * width + min(max(0, id), width - 1)) * pixelSize + k];
+                        res += anti_gamma_correction(x / 255.0) * 255 * r;
+                    }
+                    buffer[(i * newWidth + j) * pixelSize + k] = res / sum;
+                }
+            }
+        }
+        /// second resize: i coordinate
+        double scale_height = (double)(newHeight) / height;
+        for (int i = 0; i < newHeight; i++) {
+            for (int j = 0; j < newWidth; j++) {
+                if (incorrect(i + (int) di, newHeight) || incorrect(j + (int) dj, newWidth))
+                    continue;
+                double ii = (double) i / scale_height;
+                int d1 = d1_start, d2 = d2_start;
+                if (height > newHeight) {
+                    d1 = (int) (d1 / scale_height);
+                    d2 = (int) (d2 / scale_height);
+                }
+                for (int k = 0; k < pixelSize; k++) {
+                    double res = 0;
+                    double sum = 0;
+                    for (int id = (int) ii - d1; id <= (int) ii + d2; id++) {
+                        double r;
+                        if (flag)
+                            r = (d1 == d1_start) ? F(ii - (double) id) : F((ii - (double) id) * scale_height / (d2 - d1)) * (d2 - d1);
+                        else
+                            r = (d1 == d1_start) ? F(ii - (double) id) : F((ii - (double) id) * scale_height);
+                        sum += r;
+                        res += buffer[(min(max(0, id), height - 1) * newWidth + j) * pixelSize + k] * r;
+                    }
+                    newData[(int)((i + di) * newWidth + j + dj) * pixelSize + k] = (unsigned char) fmin(255, fmax(0, res / sum));
+                }
+            }
+        }
+    }
 };
 
 int main(int argc, char* argv[]) {
     if (argc != 9 && argc != 11) {
-        cerr << "Incorrect arguments count; expected 8 or 10";
+        cerr << "Incorrect arguments count; expected 8, 9 or 10";
         exit(1);
     }
     Image image(argv[1]);
@@ -222,24 +232,27 @@ int main(int argc, char* argv[]) {
     }
     image.set_new_sizes(new_width, new_height);
 
-    /// dx and dy are not necessary for my half-done algorithm
+    /// dx (dj) and dy (di) offset
     double dx;
     double dy;
     try {
         dx = stod(argv[5]);
         dy = stod(argv[6]);
     } catch (const exception& e) {
-        cerr << "Incorrect dx or dy; please enter two numbers";
+        cerr << "Incorrect di or dj; please enter two numbers";
         exit(1);
     }
 
-    /// gamma also is not necessary for my half-done algorithm, it always equals 1
+    /// gamma correction coefficient
+    double gamma;
     try {
-        double _ = stod(argv[7]);
+        gamma = stod(argv[7]);
     } catch (const exception& e) {
         cerr << "Incorrect gamma value; please enter a positive number";
         exit(1);
     }
+
+    image.set_new_params(gamma, dx, dy);
 
     /// Algorithm
     int algorithm;
@@ -251,18 +264,15 @@ int main(int argc, char* argv[]) {
     }
 
     /// B and C for BC-splines
-    double b = 0;
-    double c = 0.5;
     try {
         if (argc == 11) {
-            b = stod(argv[9]);
-            c = stod(argv[10]);
+            B = stod(argv[9]);
+            C = stod(argv[10]);
         }
     } catch (const exception& e) {
         cerr << "Incorrect B or C; please enter two numbers";
         exit(1);
     }
-    image.set_new_BC(b, c);
 
     /// Doing the algorithm and writing the result
     image.do_algorithm(algorithm);
